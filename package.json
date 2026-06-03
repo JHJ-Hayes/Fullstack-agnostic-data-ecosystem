@@ -1,0 +1,11 @@
+{
+  "name": "fullstack-agnostic-data-ecosystem",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w @fae/core && npm run build -w @fae/adapter-mysql && npm run build -w @fae/react",
+    "typecheck": "npm run typecheck -w @fae/core && npm run build -w @fae/core && npm run typecheck -w @fae/adapter-mysql && npm run typecheck -w @fae/react"
+  }
+}
