@@ -116,8 +116,11 @@ export function createMongodbUserRepository(
 /**
  * Create a {@link UserDataProvider} backed by MongoDB — plugs into Entity Service / CoreDataService.
  */
-export function createMongodbUserProvider(config: MongodbAdapterConfig): UserDataProvider {
-  const repository = createMongodbUserRepository(config);
+export function createMongodbUserProvider(
+  config: MongodbAdapterConfig,
+  options?: { resources?: MongodbResources | Promise<MongodbResources> },
+): UserDataProvider {
+  const repository = createMongodbUserRepository(config, options);
 
   return {
     async fetchRawUser(id: string): Promise<UserEntityRaw> {

@@ -117,8 +117,11 @@ export function createMysqlUserRepository(
 /**
  * Create a {@link UserDataProvider} backed by MySQL — plugs directly into {@link CoreDataService}.
  */
-export function createMysqlUserProvider(config: MysqlAdapterConfig): UserDataProvider {
-  const repository = createMysqlUserRepository(config);
+export function createMysqlUserProvider(
+  config: MysqlAdapterConfig,
+  options?: { pool?: Pick<mysql.Pool, 'execute' | 'end'> },
+): UserDataProvider {
+  const repository = createMysqlUserRepository(config, options);
 
   return {
     async fetchRawUser(id: string): Promise<UserEntityRaw> {

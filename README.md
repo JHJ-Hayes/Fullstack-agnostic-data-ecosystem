@@ -370,7 +370,7 @@ npm test
 
 Tests use **Vitest**. Add files as `packages/<pkg>/src/**/*.test.ts` and run them with root `npm test`. Prefer the agreed seams (Entity Service, UserRepository) — see AGENTS.md.
 
-CI runs on every push/PR to `main` (build + typecheck; test step lands with ticket #9).
+CI runs on every push/PR to `main` (typecheck + build + `npm test`).
 
 ## Contributing
 
