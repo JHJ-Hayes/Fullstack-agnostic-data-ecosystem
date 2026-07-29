@@ -1,0 +1,31 @@
+{
+  "name": "@fae/angular",
+  "version": "0.1.0",
+  "description": "Angular adapter for FAE — signals and providers bridging EntityService",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@fae/core": "*"
+  },
+  "peerDependencies": {
+    "@angular/core": ">=17.0.0"
+  },
+  "devDependencies": {
+    "@angular/core": "^19.0.0",
+    "typescript": "^5.7.0"
+  }
+}

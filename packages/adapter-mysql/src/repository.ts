@@ -1,7 +1,12 @@
-import type { CoreDataError, UserDataProvider, UserEntityRaw } from '@fae/core';
+import type {
+  CoreDataError,
+  UserDataProvider,
+  UserEntityRaw,
+  UserRepository,
+} from '@fae/core';
 import mysql, { type ResultSetHeader } from 'mysql2/promise';
 import { rowToUserEntityRaw } from './row-mapper.js';
-import type { MysqlAdapterConfig, MysqlAdapterHandle, UserRepository, UserRow } from './types.js';
+import type { MysqlAdapterConfig, MysqlAdapterHandle, UserRow } from './types.js';
 
 function createNotFoundError(id: string): CoreDataError {
   return { code: 'USER_NOT_FOUND', message: `User "${id}" not found` };

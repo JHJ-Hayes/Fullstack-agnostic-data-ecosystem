@@ -5,7 +5,12 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "npm run build -w @fae/core && npm run build -w @fae/adapter-mysql && npm run build -w @fae/react",
-    "typecheck": "npm run typecheck -w @fae/core && npm run build -w @fae/core && npm run typecheck -w @fae/adapter-mysql && npm run typecheck -w @fae/react"
+    "build": "npm run build -w @fae/core && npm run build -w @fae/adapter-mysql && npm run build -w @fae/adapter-mongodb && npm run build -w @fae/react && npm run build -w @fae/vue && npm run build -w @fae/angular",
+    "typecheck": "npm run typecheck -w @fae/core && npm run build -w @fae/core && npm run typecheck -w @fae/adapter-mysql && npm run typecheck -w @fae/adapter-mongodb && npm run typecheck -w @fae/react && npm run typecheck -w @fae/vue && npm run typecheck -w @fae/angular",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "vitest": "^3.2.4"
   }
 }

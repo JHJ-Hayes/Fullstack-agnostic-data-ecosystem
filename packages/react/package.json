@@ -1,7 +1,7 @@
 {
   "name": "@fae/react",
   "version": "0.1.0",
-  "description": "React adapter for FAE — hooks and provider bridging CoreDataService",
+  "description": "React adapter for FAE — hooks and provider bridging EntityService",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

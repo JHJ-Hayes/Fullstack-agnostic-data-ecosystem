@@ -1,19 +1,21 @@
 # Fullstack-Agnostic Data Ecosystem (FAE)
 
-Cross-stack data contracts and adapters — a pure TypeScript core with frontend, backend, and database adapters.
+Publishable TypeScript monorepo SDK — shared data contracts and stack adapters.
 
-Write your data logic once; bridge it to Vue, React, Angular on the client, Node.js / Java / Python / .NET on the server, and MySQL / MongoDB for persistence.
+Write Entity logic once in `@fae/core`; bridge it to React / Vue / Angular on the client and MySQL / MongoDB for persistence. Non-TypeScript backends align later via portable contracts (JSON Schema / OpenAPI), not first-class runtimes in the near term.
 
-![CI](https://github.com/JHJ-Hayes/Fullstack-agnostic-data-ecosystem/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/CHC-Hugo/Fullstack-agnostic-data-ecosystem/actions/workflows/ci.yml/badge.svg)
+
+> Domain vocabulary: see [`CONTEXT.md`](./CONTEXT.md). Hard decisions: see [`docs/adr/`](./docs/adr/).
 
 ## Why FAE?
 
 | Traditional approach | FAE approach |
 | --- | --- |
-| Rewrite fetch + state logic per framework | Implement once in `@fae/core` |
-| Duplicate DTO mapping in every app | Centralize transforms in the core |
-| Tight coupling to a single stack | Swap adapters without changing business logic |
-| Different DB access code per ORM | Shared `UserEntityRaw` contract + DB adapters |
+| Rewrite fetch + state logic per framework | Implement once as an **Entity Service** in `@fae/core` |
+| Duplicate DTO mapping in every app | Centralize **Raw Entity → Entity** transforms in core |
+| Tight coupling to a single stack | Swap **Adapters** without changing business logic |
+| Different DB access code per store | Shared **Raw Entity** + **Repository** / **Data Provider** contracts |
 
 ## Architecture
 
@@ -24,46 +26,49 @@ flowchart TB
         MongoDB[MongoDB]
     end
 
-    subgraph backends [Backend Adapters - planned]
-        Node[Node.js]
-        Java[Java]
-        Python[Python]
-        DotNet[.NET]
+    subgraph api [Consumer API - your code]
+        Routes[HTTP routes / BFF]
     end
 
     subgraph core ["@fae/core"]
-        Types["UserEntity and UserEntityRaw"]
-        Service[CoreDataService]
-        Transform[DTO transforms]
+        Entity[Entity and Raw Entity]
+        EntityService[Entity Service]
+        Transform[toEntity transforms]
     end
 
     subgraph frontends [Frontend Adapters]
-        Vue[Vue - planned]
         React[React]
-        Angular[Angular - planned]
+        Vue[Vue]
+        Angular[Angular]
     end
 
-    databases -->|"UserDataProvider and Repository"| backends
-    backends -->|UserDataProvider| core
-    core --> frontends
+    databases -->|"Repository + Data Provider"| api
+    api -->|Data Provider or DIY HTTP provider| EntityService
+    EntityService --> frontends
+    Entity --> EntityService
+    Transform --> EntityService
 ```
+
+**Backend in the first milestone** means: use Database Adapters inside **your own API**. There is no separate `@fae/adapter-node` (or Java / Python / .NET) package yet.
 
 ## Packages
 
 | Package | Status | Description |
 | --- | --- | --- |
-| `@fae/core` | ✅ Available | Framework-agnostic data service, types, and transforms |
-| `@fae/adapter-mysql` | 🚧 In progress | MySQL `UserRepository` + `UserDataProvider` |
-| `@fae/adapter-mongodb` | 🚧 Planned | MongoDB adapter |
-| `@fae/react` | ✅ Available | React hooks (`useUser`) + `FaeProvider` |
-| `@fae/vue` | 🚧 Planned | Vue composables |
-| `@fae/angular` | 🚧 Planned | Angular signals / services |
-| Backend runtime adapters | 🚧 Planned | Node.js, Java, Python, .NET |
+| `@fae/core` | ✅ Available | Entity Service, types, transforms, User example, `CoreDataService` facade |
+| `@fae/adapter-mysql` | ✅ Available | MySQL `UserRepository` + `UserDataProvider` |
+| `@fae/adapter-mongodb` | ✅ Available | MongoDB `UserRepository` + `UserDataProvider` |
+| `@fae/react` | ✅ Available | `useFaeEntity`, `useUser`, `FaeProvider` |
+| `@fae/vue` | ✅ Available | `useFaeEntity`, `useUser`, `FaeProvider` / plugin |
+| `@fae/angular` | ✅ Available | `useFaeEntity`, `useUser`, `provideFae` |
+| Portable contracts | 🚧 After milestone 1 | JSON Schema / OpenAPI for non-TypeScript stacks |
+| Official HTTP adapter | ⏳ Later | DIY `Data Provider` for now |
+| Backend runtime adapters | ⏳ Deferred | Node / Java / Python / .NET official packages |
 
 ## Quick start
 
 ```bash
-git clone https://github.com/JHJ-Hayes/Fullstack-agnostic-data-ecosystem.git
+git clone https://github.com/CHC-Hugo/Fullstack-agnostic-data-ecosystem.git
 cd Fullstack-agnostic-data-ecosystem
 npm install
 npm run build
@@ -74,52 +79,51 @@ Copy `.env.example` to `.env` and adjust when using database adapters.
 
 ## Usage
 
-### Promise API
+### Entity Service (preferred)
 
-For one-off requests or SSR:
-
-```typescript
-import { CoreDataService } from '@fae/core';
-
-const service = new CoreDataService();
-
-const user = await service.fetchUser('1');
-// { id: '1', name: 'Alice Chen', email: 'alice@example.com' }
-```
-
-### Subscribe API
-
-For reactive UI adapters (Vue ref, React Hook, Angular Signal):
+Generic read + one-shot subscribe by id — the primary core API:
 
 ```typescript
-import { CoreDataService } from '@fae/core';
+import { createEntityService, createUserEntityService } from '@fae/core';
 
-const service = new CoreDataService();
+// Official User example
+const users = createUserEntityService();
+const user = await users.fetch('1');
 
-const unsubscribe = service.subscribeUser('1', (state) => {
-  switch (state.status) {
-    case 'loading':
-      console.log('Loading…');
-      break;
-    case 'success':
-      console.log(state.data); // UserEntity
-      break;
-    case 'error':
-      console.log(state.error); // { code, message, cause? }
-      break;
-  }
+const unsubscribe = users.subscribe('1', (state) => {
+  // state: AsyncState<UserEntity> — loading | success | error
 });
 
-// Later: unsubscribe();
+// Any custom Entity
+const orders = createEntityService({
+  provider: { fetchRaw: (id) => myApi.getOrderRaw(id) },
+  toEntity: (raw) => ({ id: raw.id, total: raw.total_cents / 100 }),
+});
 ```
+
+`subscribe` is a **one-shot async load bridge** (loading → success | error), not a live cache or push feed. Lists / filters / writes stay on **Repository**.
+
+### CoreDataService (compatibility facade)
+
+Thin User-oriented wrapper kept for existing call sites. Prefer Entity Service for new code:
+
+```typescript
+import { CoreDataService } from '@fae/core';
+
+const service = new CoreDataService();
+const user = await service.fetchUser('1');
+// same as service.user.fetch('1')
+```
+
+### Default mock provider
+
+If you omit a Data Provider, core uses an in-memory **mock** User provider (Alice / Bob) so frontend adapters work zero-config. This is simulation — not production persistence.
 
 ### React adapter
 
-Install React 18+ in your app, then:
-
 ```tsx
 import { CoreDataService } from '@fae/core';
-import { FaeProvider, useUser } from '@fae/react';
+import { FaeProvider, useUser, useFaeEntity } from '@fae/react';
 
 function UserProfile({ id }: { id: string }) {
   const { status, data, error } = useUser(id);
@@ -136,7 +140,6 @@ function UserProfile({ id }: { id: string }) {
   );
 }
 
-// Default: built-in mock provider
 export function App() {
   return (
     <FaeProvider>
@@ -145,7 +148,7 @@ export function App() {
   );
 }
 
-// Custom provider (e.g. HTTP or server-injected service)
+// Custom provider (e.g. MySQL / MongoDB Data Provider on the server, or DIY HTTP)
 const service = new CoreDataService({ provider: myProvider });
 
 export function AppWithCustomService() {
@@ -159,9 +162,44 @@ export function AppWithCustomService() {
 
 | Export | Description |
 | --- | --- |
-| `useUser(id)` | Returns `AsyncState<UserEntity>` (`idle` / `loading` / `success` / `error`) |
-| `FaeProvider` | Shares a `CoreDataService` instance via React context |
-| `useFaeService()` | Read the service from the nearest `FaeProvider` |
+| `useFaeEntity(service, id)` | Generic bridge for any Entity Service |
+| `useUser(id)` | User example over `useFaeEntity` |
+| `FaeProvider` | Injects User-oriented `CoreDataService` (convenience entry) |
+| `useFaeService()` | Read the provider service |
+
+Custom Entities: pass an `EntityService` into `useFaeEntity` — the provider is not a multi-entity registry.
+
+### Vue adapter
+
+```ts
+import { createApp } from 'vue';
+import { createFaePlugin, useUser } from '@fae/vue';
+
+const app = createApp(App);
+app.use(createFaePlugin());
+app.mount('#app');
+
+// in a component setup():
+const state = useUser('1');
+```
+
+Same semantics as React: `useFaeEntity`, `useUser`, provider/plugin. Names follow Vue conventions.
+
+### Angular adapter
+
+```ts
+import { bootstrapApplication } from '@angular/platform-browser';
+import { provideFae, useUser } from '@fae/angular';
+
+bootstrapApplication(AppComponent, {
+  providers: [provideFae()],
+});
+
+// in an injection context:
+const state = useUser('1');
+```
+
+Same semantics: `useFaeEntity`, `useUser`, `provideFae` / `useFaeService`.
 
 ### MySQL adapter
 
@@ -176,13 +214,10 @@ const { provider, repository, disconnect } = createMysqlAdapter(mysqlConfigFromE
 const service = new CoreDataService({ provider });
 const user = await service.fetchUser('1');
 
-// Full CRUD via repository
 const all = await repository.findAll();
 
 await disconnect();
 ```
-
-Environment variables (see `.env.example`):
 
 | Variable | Default | Description |
 | --- | --- | --- |
@@ -193,27 +228,55 @@ Environment variables (see `.env.example`):
 | `MYSQL_DATABASE` | `fae` | Database name |
 | `MYSQL_TABLE` | `users` | Users table name |
 
-### Custom HTTP provider
+### MongoDB adapter
 
-Replace the built-in mock with your own API client:
+Documents store **Raw Entity** field names (`user_name`, `email_address`) so the boundary matches MySQL:
 
 ```typescript
-import { CoreDataService, type UserDataProvider } from '@fae/core';
+import { createUserEntityService } from '@fae/core';
+import { createMongodbAdapter, mongodbConfigFromEnv } from '@fae/adapter-mongodb';
+
+const { provider, repository, disconnect } = createMongodbAdapter(mongodbConfigFromEnv());
+
+const users = createUserEntityService({ provider });
+const user = await users.fetch('1');
+
+await disconnect();
+```
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `MONGODB_URI` | `mongodb://localhost:27017` | Connection URI |
+| `MONGODB_DATABASE` | `fae` | Database name |
+| `MONGODB_COLLECTION` | `users` | Collection name |
+
+### Custom HTTP Data Provider
+
+No official HTTP adapter package in the first milestone. Implement a Data Provider yourself:
+
+```typescript
+import { createUserEntityService, type UserDataProvider } from '@fae/core';
 
 const httpProvider: UserDataProvider = {
   async fetchRawUser(id) {
     const res = await fetch(`/api/users/${id}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return res.json();
+    return res.json(); // must match UserEntityRaw
   },
 };
 
-const service = new CoreDataService({ provider: httpProvider });
+const users = createUserEntityService({ provider: httpProvider });
+```
+
+Typical full-stack flow:
+
+```text
+Browser → DIY HTTP Data Provider → your API → Database Adapter → MySQL / MongoDB
 ```
 
 ## Core concepts
 
-### `UserEntity` (camelCase — frontend contract)
+### Entity (camelCase — consumer contract)
 
 ```typescript
 interface UserEntity {
@@ -223,7 +286,7 @@ interface UserEntity {
 }
 ```
 
-### `UserEntityRaw` (snake_case — backend / DB DTO)
+### Raw Entity (snake_case — DB / transport contract)
 
 ```typescript
 interface UserEntityRaw {
@@ -233,11 +296,11 @@ interface UserEntityRaw {
 }
 ```
 
-The core maps `UserEntityRaw` → `UserEntity` via `toUserEntity()`.
+Core maps Raw Entity → Entity via `toUserEntity()` (or your `toEntity` for custom Entities).
 
-### `AsyncState<T>`
+### AsyncState\<T\>
 
-Unified async state for all adapters:
+Unified async state for all frontend adapters:
 
 ```typescript
 type AsyncStatus = 'idle' | 'loading' | 'success' | 'error';
@@ -249,7 +312,7 @@ interface AsyncState<T> {
 }
 ```
 
-### `UserRepository` (MySQL — server-side CRUD)
+### UserRepository (Database Adapters)
 
 ```typescript
 interface UserRepository {
@@ -266,20 +329,15 @@ interface UserRepository {
 
 ```
 fullstack-agnostic-data-ecosystem/
-├── .github/workflows/ci.yml
+├── CONTEXT.md
+├── docs/adr/
 ├── packages/
-│   ├── core/                      # @fae/core
-│   │   └── src/
-│   │       ├── index.ts           # CoreDataService
-│   │       ├── types.ts           # Shared contracts
-│   │       └── utils/transform.ts
-│   └── adapter-mysql/             # @fae/adapter-mysql
-│       ├── schema/mysql.sql
-│       └── src/...
-│   └── react/                     # @fae/react
-│       └── src/
-│           ├── useUser.ts         # useUser hook
-│           └── context.tsx        # FaeProvider
+│   ├── core/                 # @fae/core
+│   ├── adapter-mysql/        # @fae/adapter-mysql
+│   ├── adapter-mongodb/      # @fae/adapter-mongodb
+│   ├── react/                # @fae/react
+│   ├── vue/                  # @fae/vue
+│   └── angular/              # @fae/angular
 ├── .env.example
 ├── package.json
 └── README.md
@@ -287,30 +345,36 @@ fullstack-agnostic-data-ecosystem/
 
 ## Roadmap
 
-- [x] `@fae/core` — types, transforms, `CoreDataService`, mock provider
-- [x] README & CI
-- [x] `@fae/adapter-mysql` — schema, `UserRepository`, `UserDataProvider` (initial)
-- [ ] `@fae/adapter-mongodb`
-- [ ] Cross-language schema (JSON Schema / OpenAPI)
-- [x] `@fae/react` — `useUser` hook + `FaeProvider`
-- [ ] `@fae/vue`, `@fae/angular`
-- [ ] Backend runtime adapters — Node.js, Java, Python, .NET
+### First publishable milestone
+
+- [x] `@fae/core` — Entity Service, types, transforms, User example, mock provider
+- [x] `@fae/react` / `@fae/vue` / `@fae/angular` — semantic parity
+- [x] `@fae/adapter-mysql`
+- [x] `@fae/adapter-mongodb`
+- [x] README aligned with domain model (`CONTEXT.md` / ADRs)
+
+### After milestone 1
+
+- [ ] Portable contracts (JSON Schema / OpenAPI)
+- [ ] Official HTTP adapter (optional convenience)
+- [ ] Example Node API showing Database Adapter + routes
+- [ ] Backend runtime adapters for other languages (deferred)
 
 ## Development
 
 ```bash
-# Build all packages
 npm run build
-
-# Type-check all packages
 npm run typecheck
+npm test
 ```
 
-CI runs on every push/PR to `main` (build + typecheck).
+Tests use **Vitest**. Add files as `packages/<pkg>/src/**/*.test.ts` and run them with root `npm test`. Prefer the agreed seams (Entity Service, UserRepository) — see AGENTS.md.
+
+CI runs on every push/PR to `main` (build + typecheck; test step lands with ticket #9).
 
 ## Contributing
 
-Contributions welcome. Please open an issue before large changes so we can align on architecture.
+Contributions welcome. Please open an issue before large changes so we can align on architecture. Prefer reading `CONTEXT.md` and `docs/adr/` first.
 
 ## License
 

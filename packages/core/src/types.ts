@@ -44,7 +44,28 @@ export type DataSubscriber<T> = (state: AsyncState<T>) => void;
 /** 取消訂閱函式 */
 export type Unsubscribe = () => void;
 
-/** 資料提供者介面 — 未來可替換為真實 HTTP / DB Driver */
+/** 通用原始資料提供者 — 依 id 取得單筆 DTO */
+export interface DataProvider<TRaw> {
+  fetchRaw(id: string): Promise<TRaw>;
+}
+
+/** User 專用 provider — 與 {@link DataProvider} 對齊，供既有 adapter 使用 */
 export interface UserDataProvider {
   fetchRawUser(id: string): Promise<UserEntityRaw>;
+}
+
+/**
+ * Persistence-facing API for User Raw Entities — implemented by Database Adapters.
+ * Writes and list queries live here; Entity Service stays single-id read/subscribe.
+ */
+export interface UserRepository {
+  findById(id: string): Promise<UserEntityRaw | null>;
+  findAll(): Promise<UserEntityRaw[]>;
+  create(data: UserEntityRaw): Promise<UserEntityRaw>;
+  update(
+    id: string,
+    data: Partial<Pick<UserEntityRaw, 'user_name' | 'email_address'>>,
+  ): Promise<UserEntityRaw | null>;
+  delete(id: string): Promise<boolean>;
+  disconnect(): Promise<void>;
 }

@@ -1,5 +1,7 @@
 import type { RowDataPacket } from 'mysql2/promise';
-import type { UserEntityRaw } from '@fae/core';
+import type { UserDataProvider, UserRepository } from '@fae/core';
+
+export type { UserRepository } from '@fae/core';
 
 /** MySQL connection settings — use {@link mysqlConfigFromEnv} for consistent env vars */
 export interface MysqlAdapterConfig {
@@ -19,26 +21,10 @@ export interface UserRow extends RowDataPacket {
   email_address: string;
 }
 
-/**
- * Server-side repository — full CRUD against MySQL.
- * {@link createMysqlUserProvider} uses this internally for reads.
- */
-export interface UserRepository {
-  findById(id: string): Promise<UserEntityRaw | null>;
-  findAll(): Promise<UserEntityRaw[]>;
-  create(data: UserEntityRaw): Promise<UserEntityRaw>;
-  update(
-    id: string,
-    data: Partial<Pick<UserEntityRaw, 'user_name' | 'email_address'>>,
-  ): Promise<UserEntityRaw | null>;
-  delete(id: string): Promise<boolean>;
-  disconnect(): Promise<void>;
-}
-
 /** Resource handle returned by factory functions */
 export interface MysqlAdapterHandle {
   repository: UserRepository;
-  provider: import('@fae/core').UserDataProvider;
+  provider: UserDataProvider;
   disconnect(): Promise<void>;
 }
 
