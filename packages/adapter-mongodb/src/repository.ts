@@ -20,8 +20,11 @@ function createNotFoundError(id: string): CoreDataError {
 }
 
 interface MongodbResources {
-  client: MongoClient;
-  collection: Collection<UserDocument>;
+  client: Pick<MongoClient, 'close'>;
+  collection: Pick<
+    Collection<UserDocument>,
+    'findOne' | 'find' | 'insertOne' | 'findOneAndUpdate' | 'deleteOne'
+  >;
 }
 
 async function connectResources(config: MongodbAdapterConfig): Promise<MongodbResources> {
@@ -35,9 +38,16 @@ async function connectResources(config: MongodbAdapterConfig): Promise<MongodbRe
 /**
  * Create a MongoDB {@link UserRepository} with full CRUD.
  * Documents use Raw Entity field names (snake_case) at the storage boundary.
+ *
+ * @param options.resources - Optional client/collection (for tests); defaults to a real Mongo connection.
  */
-export function createMongodbUserRepository(config: MongodbAdapterConfig): UserRepository {
-  let resourcesPromise: Promise<MongodbResources> | null = connectResources(config);
+export function createMongodbUserRepository(
+  config: MongodbAdapterConfig,
+  options?: { resources?: MongodbResources | Promise<MongodbResources> },
+): UserRepository {
+  let resourcesPromise: Promise<MongodbResources> | null = options?.resources
+    ? Promise.resolve(options.resources)
+    : connectResources(config);
 
   async function resources(): Promise<MongodbResources> {
     if (!resourcesPromise) {

@@ -32,9 +32,14 @@ function qualifiedTable(config: MysqlAdapterConfig): string {
 /**
  * Create a MySQL {@link UserRepository} with full CRUD.
  * Schema: see `schema/mysql.sql`.
+ *
+ * @param options.pool - Optional pool (for tests); defaults to a real mysql2 pool from config.
  */
-export function createMysqlUserRepository(config: MysqlAdapterConfig): UserRepository {
-  const pool = createPool(config);
+export function createMysqlUserRepository(
+  config: MysqlAdapterConfig,
+  options?: { pool?: Pick<mysql.Pool, 'execute' | 'end'> },
+): UserRepository {
+  const pool = options?.pool ?? createPool(config);
   const table = qualifiedTable(config);
 
   return {
